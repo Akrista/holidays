@@ -2,6 +2,7 @@
 
 namespace Spatie\Holidays\Tests;
 
+use Exception;
 use Spatie\Holidays\Countries\Belgium;
 
 it('can calculate orthodox easter', function (int $year, string $date) {
@@ -45,3 +46,34 @@ it('can calculate orthodox easter', function (int $year, string $date) {
     [2028, '2028-04-16'],
     [2029, '2029-04-08'],
 ]);
+
+it('cannot use an incorrectly formated date', function (int $year) {
+    foreach (glob(__DIR__ . '/../src/Countries/*.php') as $filename) {
+        if (basename($filename) === 'Country.php' || basename($filename) === 'SriLanka.php') {
+            continue;
+        }
+
+        $countryClass = '\\Spatie\\Holidays\\Countries\\' . basename($filename, '.php');
+
+        $country = $countryClass::make();
+
+        $allHolidays = invade($country)->allHolidays($year);
+
+        foreach ($allHolidays as $holiday) {
+            if ($holiday instanceof \Carbon\CarbonImmutable) {
+                $date = $holiday->format('m-d');
+            } else {
+                $date = $holiday;
+            }
+            $month = (int) substr($date, 0, 2);
+            $day = (int) substr($date, 3, 2);
+
+            try {
+                expect($month)->toBeLessThanOrEqual(12);
+                expect($day)->toBeLessThanOrEqual(31);
+            } catch (Exception $e) {
+                throw new Exception("Failed asserting date format in class {$countryClass} for date {$date}: " . $e->getMessage());
+            }
+        }
+    }
+})->with([2024]);
